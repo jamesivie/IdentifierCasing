@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	<Exec Command="dotnet-markdown-sample-code -- Samples.cs ../README.md" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdentifierCasing\IdentifierCasing.csproj" />
+  </ItemGroup>
+
+</Project>

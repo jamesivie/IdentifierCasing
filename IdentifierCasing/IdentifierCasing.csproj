@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+	    <TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0;net6.0;net7.0;</TargetFrameworks>
+	    <LangVersion>11.0</LangVersion>
+	    <Nullable>enable</Nullable>
+	    <Version>0.$([System.DateTime]::UtcNow.ToString(yyyy)).$([System.DateTime]::UtcNow.ToString(MMdd)).$([System.DateTime]::UtcNow.ToString(HHmm))</Version>
+	    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	    <Authors>James Ivie</Authors>
+	    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	    <Description>An MIT-licensed library that provides utility functions for translating identifiers between different casing styles.</Description>
+	    <Copyright>2020-2023</Copyright>
+	    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	    <PackageReadmeFile>README.md</PackageReadmeFile>
+	    <PackageOutputPath>\\192.168.13.99\Code\NuGet\</PackageOutputPath>
+	    <PackageProjectUrl>https://github.com/jamesivie/IdentifierCasing</PackageProjectUrl>
+	    <RepositoryUrl>https://github.com/jamesivie/IdentifierCasing</RepositoryUrl>
+	    <AnalysisLevel>latest</AnalysisLevel>
+	    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+	    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    </PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="IdentifierCasing.xml" />
+                <None Include="..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+	</ItemGroup>
+	<ItemGroup>
+		<SupportedPlatform Include="browser" />
+	</ItemGroup>
+</Project>
