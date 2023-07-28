@@ -56,16 +56,16 @@ class DataInput
 # Library Information
 
 ## Author and License
-AmbientServices is written and maintained by James Ivie.
+IdentifierCasing is written and maintained by James Ivie.
 
-AmbientServices is licensed under [MIT](https://opensource.org/licenses/MIT).
+IdentifierCasing is licensed under [MIT](https://opensource.org/licenses/MIT).
 
 ## Language and Tools
-AmbientServices is written in C#, using .NET Standard 2.0, .NET Core 3.1, and .NET 5.0.  Unit tests are written in .NET 5.0.
+AmbientServices is written in C#, using .NET Standard 2.0, .NET Core 3.1, .NET 5.0, .NET 6.0, and .NET 7.0.  Unit tests are written in .NET 7.0.
 
-The code can be built using either Microsoft Visual Studio 2017+, Microsoft Visual Studio Code, or .NET Core command-line utilities.
+The code can be built using either Microsoft Visual Studio 2022+, Microsoft Visual Studio Code, or .NET Core command-line utilities.
 
-Binaries are available at https://www.nuget.org/packages/AmbientServices.
+Binaries are available at https://www.nuget.org/packages/IdentifierCasing.
 
 ## Contributions
 Contributions are welcome under the following conditions:
@@ -76,4 +76,4 @@ Contributions are welcome under the following conditions:
 5. style for code and documentation contributions remains consistent
 
 ## Status
-[![.NET](https://github.com/AmbientServices/AmbientServices/actions/workflows/dotnet.yml/badge.svg)](https://github.com/AmbientServices/AmbientServices/actions/workflows/dotnet.yml)
+[![.NET](https://github.com/AmbientServices/IdentifierCasing/actions/workflows/dotnet.yml/badge.svg)](https://github.com/AmbientServices/AmbientServices/actions/workflows/dotnet.yml)
