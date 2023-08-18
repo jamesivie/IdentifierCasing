@@ -16,6 +16,7 @@ Upper | Upper case, with a space between each word and all upper-case (widely ap
 Train | Pascal casing with dashes in addition to casing transitions: First letter capitalized with a dash followed by the first letter of each subsequent word also capitalized (HTTP Header names use this format). Note that the dashes in this format are redundant--they are not needed to detect word breaks. | Y
 Spreadsheet | Pascal casing with spaces in addition to casing transitions: First letter capitalized with a space followed by the first letter of each subsequent word also capitalized (CSV headers use this format). Note that the spaces in this format are redundant--they are not needed to detect word breaks. | Y
 
+## Other Casing Styles
 All casing styles except for `None` can be losslessly converted between different styles.  Other output styles are possible as well, using the following flags, which may be combined:
 
 Style Flag | Description
