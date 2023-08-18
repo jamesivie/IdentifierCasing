@@ -21,8 +21,16 @@ namespace IdentifierCasing.Test
             testStrings[CasingStyle.Macro] = "THIS_IS_A_TEST";
             testStrings[CasingStyle.Train] = "This-Is-A-Test";
             testStrings[CasingStyle.Spreadsheet] = "This Is A Test";
-            testStrings[CasingStyle.Mixed] = "this-Is_aTest";
-            // detect eacnh casing format
+            testStrings[CasingStyle.None] = "this-Is_aTest";
+            Dictionary<CasingStyle, string> redundantTargetStrings = new();
+            Dictionary<CasingStyle, string> ambiguousTargetStrings = new();
+            ambiguousTargetStrings[CasingStyle.None] = "thisisatest";
+            ambiguousTargetStrings[CasingStyle.FirstCharUpper] = "Thisisatest";
+            ambiguousTargetStrings[CasingStyle.WordBodyCharsUpper] = "tHISISATEST";
+            ambiguousTargetStrings[CasingStyle.FirstCharUpper | CasingStyle.WordSeparatorSpace] = "Thisisatest";
+            ambiguousTargetStrings[CasingStyle.WordBodyCharsUpper | CasingStyle.WordSeparatorCaseSwitch] = "tHISiSatEST";   // inverted pascal.  this is ambiguous because it could be Camel casing of t-H-I-Si-Sat-E-S-T
+            ambiguousTargetStrings[CasingStyle.FirstCharUpper | CasingStyle.WordBodyCharsUpper | CasingStyle.WordSeparatorCaseSwitch] = "THISiSatEST";  // inverted camel.  this is ambiguous because it could be Pascal casing of T-H-I-Si-Sat-E-S-T
+            // detect each casing format
             foreach (KeyValuePair<CasingStyle, string> kvp in testStrings)
             {
                 Assert.AreEqual(kvp.Key, IdentifierCasing.CasingTranslator.DetectIdentifierCasing(kvp.Value));
@@ -32,21 +40,48 @@ namespace IdentifierCasing.Test
             {
                 foreach (CasingStyle newCasing in EnumExtensions.EnumUniqueValues<CasingStyle>())
                 {
-                    if (newCasing == CasingStyle.Mixed) continue;   // skip mixed casing as an output
-                    Assert.AreEqual(testStrings[newCasing], IdentifierCasing.CasingTranslator.Translate(kvp.Value, newCasing));
+                    // skip 'None'
+                    if (newCasing == CasingStyle.None) continue;
+                    string translated = IdentifierCasing.CasingTranslator.Translate(kvp.Value, newCasing);
+                    // is there a test string for this casing?
+                    if (testStrings.ContainsKey(newCasing))
+                    {
+                        Assert.AreEqual(testStrings[newCasing], translated);
+                    }
+                    else if (redundantTargetStrings.ContainsKey(newCasing))
+                    {
+                        Assert.AreEqual(redundantTargetStrings[newCasing], translated);
+                    }
+                    else
+                    {
+                        Assert.AreEqual(ambiguousTargetStrings[newCasing], translated);
+                    }
                 }
             }
             // write the PascalCasing identifier to a string with a specified casing and make sure it is correct
             foreach (CasingStyle newCasing in EnumExtensions.EnumUniqueValues<CasingStyle>())
             {
-                if (newCasing == CasingStyle.Mixed) continue;   // skip mixed casing as an output
+                if (newCasing == CasingStyle.None) continue;   // skip mixed casing as an output
                 StringBuilder written = new();
                 using (StringWriter writer = new(written))
                 {
                     IdentifierCasing.CasingTranslator.WriteCasedIdentifier(writer, newCasing, testStrings[CasingStyle.Pascal]);
                     writer.Flush();
                 }
-                Assert.AreEqual(testStrings[newCasing], written.ToString());
+                string translated = written.ToString();
+                // is there a test string for this casing?
+                if (testStrings.ContainsKey(newCasing))
+                {
+                    Assert.AreEqual(testStrings[newCasing], translated);
+                }
+                else if (redundantTargetStrings.ContainsKey(newCasing))
+                {
+                    Assert.AreEqual(redundantTargetStrings[newCasing], translated);
+                }
+                else
+                {
+                    Assert.AreEqual(ambiguousTargetStrings[newCasing], translated);
+                }
             }
         }
         [TestMethod]
@@ -221,7 +256,7 @@ namespace IdentifierCasing.Test
             // write the PascalCasing identifier to a string with a specified casing and make sure it is correct
             foreach (CasingStyle newCasing in EnumExtensions.EnumUniqueValues<CasingStyle>())
             {
-                if (newCasing == CasingStyle.Mixed) continue;   // skip mixed casing as an output
+                if (newCasing == CasingStyle.None) continue;   // skip mixed casing as an output
                 Assert.AreEqual("-", IdentifierCasing.CasingTranslator.Translate("-", newCasing));
                 Assert.AreEqual("---", IdentifierCasing.CasingTranslator.Translate("---", newCasing));
                 Assert.AreEqual("_", IdentifierCasing.CasingTranslator.Translate("_", newCasing));
@@ -245,7 +280,7 @@ namespace IdentifierCasing.Test
             testStrings[CasingStyle.Macro] = "THIS_IS_A_TEST";
             testStrings[CasingStyle.Train] = "This-Is-A-Test";
             testStrings[CasingStyle.Spreadsheet] = "This Is A Test";
-            testStrings[CasingStyle.Mixed] = "this-Is_aTest";
+            testStrings[CasingStyle.None] = "this-Is_aTest";
             // read each casing into the system format
             foreach (KeyValuePair<CasingStyle, string> kvp in testStrings)
             {
@@ -258,7 +293,7 @@ namespace IdentifierCasing.Test
         [TestMethod, ExpectedException(typeof(ArgumentException))]
         public void CasingTranslatorOutputMixed()
         {
-            IdentifierCasing.CasingTranslator.Translate("this-is-a-test", CasingStyle.Mixed);
+            IdentifierCasing.CasingTranslator.Translate("this-is-a-test", CasingStyle.None);
         }
         [TestMethod, ExpectedException(typeof(ArgumentException))]
         public void CasingTranslatorWriteMixedCase()
@@ -266,7 +301,7 @@ namespace IdentifierCasing.Test
             StringBuilder written = new();
             using (StringWriter writer = new(written))
             {
-                IdentifierCasing.CasingTranslator.WriteCasedIdentifier(writer, CasingStyle.Mixed, "ThisIsATest");
+                IdentifierCasing.CasingTranslator.WriteCasedIdentifier(writer, CasingStyle.None, "ThisIsATest");
             }
         }
         [TestMethod, ExpectedException(typeof(ArgumentException))]

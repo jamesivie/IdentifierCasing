@@ -1,4 +1,6 @@
 ﻿using System;
+using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 
@@ -20,8 +22,72 @@ public static class CasingTranslator
     {
         if (string.IsNullOrEmpty(identifier)) throw new ArgumentException("The specified identifier is empty.  Identifier strings must have at least one character.");
         int leadingPunctuation = identifier.IndexOfNotPunctuationWhitespaceOrSymbol();
+        CasingStyle style = CasingStyle.None;
+        // *not* composed entirely of punctuation?  count as 'none' if it is (it's ambiguous)
+        if (leadingPunctuation >= 0)
+        {
+            int lastNonPunctuation = identifier.LastIndexOfNotPunctuationOrWhitespace();
+            System.Diagnostics.Debug.Assert(lastNonPunctuation >= 0);
+            if (Char.IsUpper(identifier[leadingPunctuation])) style |= CasingStyle.FirstCharUpper;
+            bool hasUpper = false;
+            bool hasLower = false;
+            bool hasPunct = false;
+//            bool hasOtherPunctuation = false;
+            bool wordLeadingCharIsUpper = false;
+            bool wordLeadingCharIsLower = false;
+            bool wordInternalCharIsUpper = false;
+            bool wordInternalCharIsLower = false;
+            bool prevDefiniteWordBreak = false;
+            bool prevLeadingWordChar = false;
+            for (int offset = leadingPunctuation + 1; offset < lastNonPunctuation; ++offset)
+            {
+                char ch = identifier[offset];
+                bool isUpper = Char.IsUpper(ch);
+                bool isLower = Char.IsLower(ch);
+                bool isPunct = Char.IsWhiteSpace(ch) || Char.IsPunctuation(ch) || Char.IsSymbol(ch);
+                bool isDash = (ch == '-');
+                bool isSpace = (ch == ' ');
+                bool isUnderscore = (ch == '_');
+                if (isDash) style |= CasingStyle.WordSeparatorDash;
+                else if (isSpace) style |= CasingStyle.WordSeparatorSpace;
+                else if (isUnderscore) style |= CasingStyle.WordSeparatorUnderscore;
+//                else if (isPunct) hasOtherPunctuation = true;
+                hasUpper = hasUpper || isUpper;
+                hasLower = hasLower || isLower;
+                hasPunct = hasPunct || isPunct;
+                // is this definitive information about leading word character casing?
+                if (prevDefiniteWordBreak && isLower) wordLeadingCharIsLower = true;
+                if (prevDefiniteWordBreak && isUpper) wordLeadingCharIsUpper = true;
+                // is this definitive information about internal word character casing?
+                if (prevLeadingWordChar && isLower) wordInternalCharIsLower = true;
+                if (prevLeadingWordChar && isUpper) wordInternalCharIsUpper = true;
+                prevLeadingWordChar = prevDefiniteWordBreak;
+                prevDefiniteWordBreak = isPunct;
+            }
+            // if there is conflicting information about word leading character casing, return None because we can't tell
+            if (wordLeadingCharIsLower && wordLeadingCharIsUpper) style = CasingStyle.None;
+            else if (wordLeadingCharIsLower && hasUpper) style |= CasingStyle.WordSeparatorCaseSwitch;
+            else if (wordLeadingCharIsUpper && hasLower) style |= CasingStyle.WordSeparatorCaseSwitch;
+            else if (hasLower && hasUpper) style |= CasingStyle.WordSeparatorCaseSwitch;    // in this case, we can't be certain, but either we're correct or the string is indeterminate
+            // if there is conflicting information about word internal character casing, return None because we can't tell
+            if (wordInternalCharIsLower && wordInternalCharIsUpper) style = CasingStyle.None;
+            else if (wordInternalCharIsLower) style &= ~CasingStyle.WordBodyCharsUpper;
+            else if (wordInternalCharIsUpper) style |= CasingStyle.WordBodyCharsUpper;
+        }
+        Debug.Assert(style == OldDetectIdentifierCasing(identifier));
+        return style;
+    }
+    /// <summary>
+    /// Detects the casing of the specified identifier.
+    /// </summary>
+    /// <param name="identifier">The identifier to check.</param>
+    /// <returns>The <see cref="CasingStyle"/> of the specified string.</returns>
+    private static CasingStyle OldDetectIdentifierCasing(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier)) throw new ArgumentException("The specified identifier is empty.  Identifier strings must have at least one character.");
+        int leadingPunctuation = identifier.IndexOfNotPunctuationWhitespaceOrSymbol();
         // composed entirely of punctuation?  count that as 'mixed' (it's ambiguous)
-        if (leadingPunctuation < 0) return CasingStyle.Mixed;
+        if (leadingPunctuation < 0) return CasingStyle.None;
         int lastNonPunctuation = identifier.LastIndexOfNotPunctuationOrWhitespace();
         System.Diagnostics.Debug.Assert(lastNonPunctuation >= 0);
         bool hasUpper = false;
@@ -68,7 +134,7 @@ public static class CasingTranslator
         if (!hasUnderscores && hasSpaces && !hasDashes && hasLower != hasUpper) return (hasUpper) ? CasingStyle.Upper : CasingStyle.Lower;
         // if the string has two of mixed case, dashes, spaces, and underscores, it's mixed
         int conditions = ((hasLower && hasUpper) ? 1 : 0) + (hasDashes ? 1 : 0) + (hasSpaces ? 1 : 0) + (hasUnderscores ? 1 : 0);
-        if (conditions >= 2) return CasingStyle.Mixed;
+        if (conditions >= 2) return CasingStyle.None;
         // NOTE that there is a special edge case here where there are characters that are in the identifier that are neither upper nor lower case--that's OK, we'll just consider it all upper-case in that situation.
         if (hasDashes)
         {
@@ -76,6 +142,7 @@ public static class CasingTranslator
         }
         return hasLower ? CasingStyle.Snake : CasingStyle.Macro;
     }
+
     /// <summary>
     /// Writes a system-cased identifier to the specified <see cref="TextWriter"/> with the specified casing.
     /// </summary>
@@ -88,103 +155,39 @@ public static class CasingTranslator
         // no translation needed?
         if (desiredStyle == CasingStyle.Pascal || string.IsNullOrEmpty(systemCasedIdentifier))
         {
+            System.Diagnostics.Debug.Assert(DetectIdentifierCasing(systemCasedIdentifier) == CasingStyle.Pascal);
             writer.Write(systemCasedIdentifier);
             return;
         }
         // invalid casing?
-        switch (desiredStyle)
-        {
-            case CasingStyle.Lower:
-            case CasingStyle.Upper:
-            case CasingStyle.Camel:
-            case CasingStyle.Kebab:
-            case CasingStyle.Snake:
-            case CasingStyle.Cobol:
-            case CasingStyle.Macro:
-            case CasingStyle.Train:
-            case CasingStyle.Spreadsheet:
-                break;
-            case CasingStyle.Pascal:    // this should have been handled above!
-            default:
-                throw new ArgumentException("The specified IdentifierCasing is not supported as target casing format!");
-        }
+        System.Diagnostics.Debug.Assert(desiredStyle != CasingStyle.Pascal);  // this should have been handled above
+        if (desiredStyle == CasingStyle.None) throw new ArgumentException("The specified IdentifierCasing is not supported as target casing format!", nameof(desiredStyle));
+        
+        bool firstCharUpper = (desiredStyle & CasingStyle.FirstCharUpper) != 0;
+        bool wordBodyUpperCase = (desiredStyle & CasingStyle.WordBodyCharsUpper) != 0;
+        bool wordStartUpperCase = (desiredStyle & CasingStyle.WordSeparatorCaseSwitch) != 0 ? !wordBodyUpperCase : wordBodyUpperCase;
         char ch = systemCasedIdentifier[0];
-        switch (desiredStyle)
-        {
-            case CasingStyle.Lower:
-            case CasingStyle.Camel:
-            case CasingStyle.Kebab:
-            case CasingStyle.Snake:
-                writer.Write(Char.ToLowerInvariant(ch));
-                break;
-            case CasingStyle.Upper:
-            case CasingStyle.Pascal:
-            case CasingStyle.Train:
-            case CasingStyle.Spreadsheet:
-            case CasingStyle.Cobol:
-            case CasingStyle.Macro:
-                writer.Write(Char.ToUpperInvariant(ch));
-                break;
-        }
+        writer.Write(firstCharUpper ? Char.ToUpperInvariant(ch) : Char.ToLowerInvariant(ch));
         for (int offset = 1; offset < systemCasedIdentifier.Length; ++offset)
         {
             ch = systemCasedIdentifier[offset];
-            // word break?
+            // is this character the first in a new word?
             if (Char.IsUpper(ch))
             {
-                switch (desiredStyle)
-                {
-                    case CasingStyle.Lower:
-                        if (offset != 1) writer.Write(' ');
-                        writer.Write(Char.ToLowerInvariant(ch));
-                        break;
-                    case CasingStyle.Camel:
-                        writer.Write(Char.ToUpperInvariant(ch));
-                        break;
-                    case CasingStyle.Kebab:
-                        if (offset != 1) writer.Write('-');
-                        writer.Write(Char.ToLowerInvariant(ch));
-                        break;
-                    case CasingStyle.Snake:
-                        if (offset != 1) writer.Write('_');
-                        writer.Write(Char.ToLowerInvariant(ch));
-                        break;
-                    case CasingStyle.Upper:
-                    case CasingStyle.Spreadsheet:
-                        if (offset != 1) writer.Write(' ');
-                        writer.Write(ch);
-                        break;
-                    case CasingStyle.Train:
-                    case CasingStyle.Cobol:
-                        if (offset != 1) writer.Write('-');
-                        writer.Write(ch);
-                        break;
-                    case CasingStyle.Macro:
-                        if (offset != 1) writer.Write('_');
-                        writer.Write(ch);
-                        break;
-                }
+                System.Diagnostics.Debug.Assert(Char.IsUpper(ch));
+                if ((desiredStyle & CasingStyle.WordSeparatorDash) != 0) writer.Write('-');
+                if ((desiredStyle & CasingStyle.WordSeparatorSpace) != 0) writer.Write(' ');
+                if ((desiredStyle & CasingStyle.WordSeparatorUnderscore) != 0) writer.Write('_');
+                writer.Write(wordStartUpperCase ? ch : Char.ToLowerInvariant(ch));
             }
-            else // not a word break
+            else if (Char.IsLower(ch)) // not a word break
             {
                 System.Diagnostics.Debug.Assert(!Char.IsUpper(ch));
-                switch (desiredStyle)
-                {
-                    case CasingStyle.Lower:
-                    case CasingStyle.Pascal:
-                    case CasingStyle.Train:
-                    case CasingStyle.Spreadsheet:
-                    case CasingStyle.Camel:
-                    case CasingStyle.Kebab:
-                    case CasingStyle.Snake:
-                        writer.Write(ch);
-                        break;
-                    case CasingStyle.Upper:
-                    case CasingStyle.Cobol:
-                    case CasingStyle.Macro:
-                        writer.Write(Char.ToUpperInvariant(ch));
-                        break;
-                }
+                writer.Write(wordBodyUpperCase ? Char.ToUpperInvariant(ch) : ch);
+            }
+            else // other chars just get copied (these may screw up translation to/from some formats)
+            {
+                writer.Write(ch);
             }
         }
     }
@@ -244,28 +247,16 @@ public static class CasingTranslator
     public static string Translate(string identifier, CasingStyle desiredStyle)
     {
         if (string.IsNullOrEmpty(identifier)) return identifier;
-        switch (desiredStyle)
-        {
-            case CasingStyle.Lower:
-            case CasingStyle.Upper:
-            case CasingStyle.Pascal:
-            case CasingStyle.Train:
-            case CasingStyle.Spreadsheet:
-            case CasingStyle.Camel:
-            case CasingStyle.Kebab:
-            case CasingStyle.Snake:
-            case CasingStyle.Cobol:
-            case CasingStyle.Macro:
-                break;
-            default:
-                throw new ArgumentException("The specified IdentifierCasing is not supported as target format!");
-        }
+        if (desiredStyle == CasingStyle.None) throw new ArgumentException("The specified IdentifierCasing is not supported as target casing format!", nameof(desiredStyle));
         // find out what casing it's currently in
         CasingStyle casing = DetectIdentifierCasing(identifier);
         // is it already in the correct casing?
         if (casing == desiredStyle) return identifier;
         // allocate an output buffer with enough space for most cases
         StringBuilder output = new(identifier.Length * 4 / 3);
+        bool firstCharUpper = (desiredStyle & CasingStyle.FirstCharUpper) != 0;
+        bool wordBodyUpperCase = (desiredStyle & CasingStyle.WordBodyCharsUpper) != 0;
+        bool wordStartUpperCase = (desiredStyle & CasingStyle.WordSeparatorCaseSwitch) != 0 ? !wordBodyUpperCase : wordBodyUpperCase;
         // handle leading punctuation
         int offset = 0;
         for (; offset < identifier.Length; ++offset)
@@ -279,25 +270,9 @@ public static class CasingTranslator
             }
             else
             {
-                // handle the first non-separator character specially
+                // handle the first non-punctuation character specially
                 char ch = identifier[offset];
-                switch (desiredStyle)
-                {
-                    case CasingStyle.Lower:
-                    case CasingStyle.Camel:
-                    case CasingStyle.Kebab:
-                    case CasingStyle.Snake:
-                        output.Append(Char.ToLowerInvariant(ch));
-                        break;
-                    case CasingStyle.Upper:
-                    case CasingStyle.Pascal:
-                    case CasingStyle.Spreadsheet:
-                    case CasingStyle.Train:
-                    case CasingStyle.Cobol:
-                    case CasingStyle.Macro:
-                        output.Append(Char.ToUpperInvariant(ch));
-                        break;
-                }
+                output.Append(firstCharUpper ? Char.ToUpperInvariant(ch) : Char.ToLowerInvariant(ch));
                 break;
             }
         }
@@ -328,7 +303,7 @@ public static class CasingTranslator
                     c = identifier[offset];
                 }
                 // an upper-case character in a pascal, http, spreadsheet, camel, or mixed string with a case transition?
-                else if (Char.IsUpper(c) && (casing == CasingStyle.Pascal || casing == CasingStyle.Train || casing == CasingStyle.Spreadsheet || casing == CasingStyle.Camel || (casing == CasingStyle.Mixed && nonUpperCaseCharactersSincePunctuation)))
+                else if (Char.IsUpper(c) && (casing == CasingStyle.Pascal || casing == CasingStyle.Train || casing == CasingStyle.Spreadsheet || casing == CasingStyle.Camel || (casing == CasingStyle.None && nonUpperCaseCharactersSincePunctuation)))
                 {
                     // this is also a word break
                     wordBreak = true;
@@ -338,71 +313,26 @@ public static class CasingTranslator
                 // word break here?
                 if (wordBreak)
                 {
-                    switch (desiredStyle)
-                    {
-                        case CasingStyle.Pascal:
-                        case CasingStyle.Camel:
-                            output.Append(Char.ToUpperInvariant(c));
-                            break;
-                        case CasingStyle.Kebab:
-                            output.Append('-');
-                            output.Append(Char.ToLowerInvariant(c));
-                            break;
-                        case CasingStyle.Snake:
-                            output.Append('_');
-                            output.Append(Char.ToLowerInvariant(c));
-                            break;
-                        case CasingStyle.Train:
-                        case CasingStyle.Cobol:
-                            output.Append('-');
-                            output.Append(Char.ToUpperInvariant(c));
-                            break;
-                        case CasingStyle.Lower:
-                            output.Append(' ');
-                            output.Append(Char.ToLowerInvariant(c));
-                            break;
-                        case CasingStyle.Spreadsheet:
-                        case CasingStyle.Upper:
-                            output.Append(' ');
-                            output.Append(Char.ToUpperInvariant(c));
-                            break;
-                        case CasingStyle.Macro:
-                            output.Append('_');
-                            output.Append(Char.ToUpperInvariant(c));
-                            break;
-                    }
+                    if ((desiredStyle & CasingStyle.WordSeparatorDash) != 0) output.Append('-');
+                    if ((desiredStyle & CasingStyle.WordSeparatorSpace) != 0) output.Append(' ');
+                    if ((desiredStyle & CasingStyle.WordSeparatorUnderscore) != 0) output.Append('_');
+                    output.Append(wordStartUpperCase ? Char.ToUpperInvariant(c) : Char.ToLowerInvariant(c));
                 }
                 else // middle of word
                 {
-                    switch (desiredStyle)
-                    {
-                        case CasingStyle.Lower:
-                        case CasingStyle.Pascal:
-                        case CasingStyle.Train:
-                        case CasingStyle.Spreadsheet:
-                        case CasingStyle.Camel:
-                        case CasingStyle.Kebab:
-                        case CasingStyle.Snake:
-                            output.Append(Char.ToLowerInvariant(c));
-                            break;
-                        case CasingStyle.Upper:
-                        case CasingStyle.Cobol:
-                        case CasingStyle.Macro:
-                            output.Append(Char.ToUpperInvariant(c));
-                            break;
-                    }
+                    output.Append(wordBodyUpperCase ? Char.ToUpperInvariant(c) : Char.ToLowerInvariant(c));
                 }
             }
-            // handle trailing punctuation
-            for (; offset < identifier.Length; ++offset)
+        }
+        // handle trailing punctuation
+        for (; offset < identifier.Length; ++offset)
+        {
+            char c = identifier[offset];
+            // a punctuation or symbol character?
+            if (Char.IsWhiteSpace(c) || Char.IsPunctuation(c) || Char.IsSymbol(c))
             {
-                char c = identifier[offset];
-                // a punctuation or symbol character?
-                if (Char.IsWhiteSpace(c) || Char.IsPunctuation(c) || Char.IsSymbol(c))
-                {
-                    // just append the punctuation/symbol
-                    output.Append(c);
-                }
+                // just append the punctuation/symbol
+                output.Append(c);
             }
         }
         return output.ToString();

@@ -1,10 +1,10 @@
 # Overview
 IdentifierCasing is a .NET library that provides tools for translating identifiers between different casing styles in order to comply with diverse contextual casing styles.
 
-## Casing Styles
+## Standard Casing Styles
 Style | Description | Outputtable
 ---|---|---
-Mixed | Not valid as an output format, but indicates that a string that was read has two or more of the following: mixed case, a dash, an underscore. The system will do its best to translate these, though the same issues exist here with single-character words.  The system will assume that anything between dashes and underscores is a single word, unless the case changes from lower to upper. | N
+None | Not valid as an output format, but indicates that a string that was read has two or more of the following: mixed case, a dash, an underscore. The system will do its best to translate these, though the same issues exist here with single-character words.  The system will assume that anything between dashes and underscores is a single word, unless the case changes from lower to upper. | N
 Pascal | First letter capitalized and the first letter of each subsequent word also capitalized (widely applicable). | Y
 Camel | First letter lower-case and the first letter of each subsequent word capitalized (most applicable for Java or JavaScript function names, variable names in most languages).   | Y
 Kebab | All lower-case with dashes indicating word breaks (most applicable in formats like JSON, and XML). | Y
@@ -16,7 +16,24 @@ Upper | Upper case, with a space between each word and all upper-case (widely ap
 Train | Pascal casing with dashes in addition to casing transitions: First letter capitalized with a dash followed by the first letter of each subsequent word also capitalized (HTTP Header names use this format). Note that the dashes in this format are redundant--they are not needed to detect word breaks. | Y
 Spreadsheet | Pascal casing with spaces in addition to casing transitions: First letter capitalized with a space followed by the first letter of each subsequent word also capitalized (CSV headers use this format). Note that the spaces in this format are redundant--they are not needed to detect word breaks. | Y
 
-All casing styles except for `Mixed` can be losslessly converted between different styles.
+All casing styles except for `None` can be losslessly converted between different styles.  Other output styles are possible as well, using the following flags, which may be combined:
+
+Style Flag | Description
+---|---
+CasingStyle.FirstCharUpper | Indicates that the first character of the identifier should always be upper-case
+CasingStyle.WordBodyCharsUpper | Indicates that characters in the body of a word should always be upper-case
+CasingStyle.WordSeparatorCaseSwitch | Indicates that words should be separated by switching case between the word body casing and the first character of each subsequent word
+CasingStyle.WordSeparatorDash | Indicates that all words should be separated by dashes
+CasingStyle.WordSeparatorUnderscore | Indicates that all words should be separated by underscores
+CasingStyle.WordSeparatorSpace | Indicates that all words should be separated by spaces
+
+Note that some most sensible output formats are defined in the standard casing.  Most other output formats will be ambiguous or have redundant punctuation.
+
+For example, CasingStyle.WordBodyCharsUpper | CasingStyle.WordSeparatorCaseSwitch outputs the opposite casing from Pascal style.  The identifier ThisIsATest in this format would come out as tHISiSatEST.  While this may appear to be unambiguous, it could be the Camel casing for the identifier t-H-I-Si-Sat-E-S-T.  Given the prevlaent use of Camel casing, the detector detects this identifier as Camel style rather than a combination of non-standard flags that is the reverse of Pascal casing.  A more complicated algorithm that uses a dictionary might be able to distinguish many of these cases, but could never be perfect and would be much, much slower than the current alogorithm.
+
+CasingStyle.WordSeparatorDash | CasingStyle.WordSeparatorSpace is redundant.  The identifier ThisIsATest translated to this style would be "this- is- a- test".
+
+When multiple word break punctuation flags are set, they are always applied in the following order: dashes first, spaces second, underscores third.
 
 ### Sample Usage
 [//]: # (TranslationSample)
