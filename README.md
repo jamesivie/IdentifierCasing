@@ -28,11 +28,11 @@ CasingStyle.WordSeparatorDash | Indicates that all words should be separated by 
 CasingStyle.WordSeparatorUnderscore | Indicates that all words should be separated by underscores
 CasingStyle.WordSeparatorSpace | Indicates that all words should be separated by spaces
 
-Note that some most sensible output formats are defined in the standard casing.  Most other output formats will be ambiguous or have redundant punctuation.
+Note that most sensible output formats are defined in the standard casing.  Most other output formats will be ambiguous or have redundant punctuation.
 
 For example, CasingStyle.WordBodyCharsUpper | CasingStyle.WordSeparatorCaseSwitch outputs the opposite casing from Pascal style.  The identifier ThisIsATest in this format would come out as tHISiSatEST.  While this may appear to be unambiguous, it could be the Camel casing for the identifier t-H-I-Si-Sat-E-S-T.  Given the prevlaent use of Camel casing, the detector detects this identifier as Camel style rather than a combination of non-standard flags that is the reverse of Pascal casing.  A more complicated algorithm that uses a dictionary might be able to distinguish many of these cases, but could never be perfect and would be much, much slower than the current alogorithm.
 
-CasingStyle.WordSeparatorDash | CasingStyle.WordSeparatorSpace is redundant.  The identifier ThisIsATest translated to this style would be "this- is- a- test".
+CasingStyle.WordSeparatorDash | CasingStyle.WordSeparatorSpace has redundant punctuation.  The identifier ThisIsATest translated to this style would be "this- is- a- test".
 
 When multiple word break punctuation flags are set, they are always applied in the following order: dashes first, spaces second, underscores third.
 

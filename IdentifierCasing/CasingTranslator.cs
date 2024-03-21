@@ -74,9 +74,12 @@ public static class CasingTranslator
             else if (wordInternalCharIsLower) style &= ~CasingStyle.WordBodyCharsUpper;
             else if (wordInternalCharIsUpper) style |= CasingStyle.WordBodyCharsUpper;
         }
+#if DEBUG
         Debug.Assert(style == OldDetectIdentifierCasing(identifier));
+#endif
         return style;
     }
+#if DEBUG
     /// <summary>
     /// Detects the casing of the specified identifier.
     /// </summary>
@@ -142,7 +145,7 @@ public static class CasingTranslator
         }
         return hasLower ? CasingStyle.Snake : CasingStyle.Macro;
     }
-
+#endif
     /// <summary>
     /// Writes a system-cased identifier to the specified <see cref="TextWriter"/> with the specified casing.
     /// </summary>
